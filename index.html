@@ -1,0 +1,1018 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CampusHealth — Updated Dashboard (Upgraded)</title>
+
+  <!-- =========================
+       LOCALHOST CONFIG
+       ========================= -->
+  <script>
+    // Change this if your project folder name or port is different
+    const BASE_URL = "http://localhost/iM/"; // Updated to match your folder name
+  </script>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- Icons -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+  <style>
+    .nav-active { background: rgba(16,185,129,0.12) !important; font-weight:700; }
+    .modal-fade { transition: all .18s ease; transform-origin:center top; }
+    .sticky-header th { position: sticky; top: 0; background: rgb(255, 255, 255); z-index:1; }
+    .top-row { border-bottom: 1px solid rgba(0,0,0,0.06); }
+    .tab-row { border-bottom: 1px solid rgba(0,0,0,0.04); background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-green-50 to-white">
+
+  <script>
+    // Show loading indicator immediately
+    document.write('<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 9999;"><p>Loading CampusHealth...</p></div>');
+  </script>
+
+  <!-- =========================
+       HEADER / NAV
+       ========================= -->
+  <header class="w-full shadow-sm">
+    <div class="top-row px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="text-2xl font-bold text-green-800">CampusHealth</div>
+          <div class="text-sm text-green-600 hidden md:block">Health Monitor</div>
+        </div>
+      </div>
+
+      <div class="flex-1 max-w-2xl mx-6">
+        <input id="globalSearchTop" placeholder="Search students, id, course..." class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-green-400" />
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="alertTopBtn" class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2">
+          <i class='bx bx-bell'></i> Alerts
+        </button>
+
+        <button onclick="logout()" class="px-3 py-2 bg-gray-200 rounded-lg text-sm">Logout</button>
+      </div>
+    </div>
+
+    <div class="tab-row px-6 py-2 flex items-center gap-4">
+      <nav id="tabs" class="flex gap-2">
+        <button data-view="dashboard" class="tab-btn px-3 py-2 rounded-md nav-active">Dashboard</button>
+        <button data-view="students" class="tab-btn px-3 py-2 rounded-md">Students</button>
+        <button data-view="monitoring" class="tab-btn px-3 py-2 rounded-md">Monitoring</button>
+        <button data-view="alerts" class="tab-btn px-3 py-2 rounded-md">Alerts</button>
+        <button data-view="reports" class="tab-btn px-3 py-2 rounded-md">Reports</button>
+        <button data-view="trash" class="tab-btn px-3 py-2 rounded-md">Trash Bin</button>
+      </nav>
+
+      <div class="ml-auto text-sm text-gray-600 hidden md:block" id="topStatusSummary"></div>
+    </div>
+  </header>
+
+  <!-- =========================
+       MAIN
+       ========================= -->
+  <main class="p-6 max-w-7xl mx-auto">
+    <div id="content"></div>
+  </main>
+
+  <!-- =========================
+       FOOTER
+       ========================= -->
+  <footer class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-lg shadow-lg px-4 py-2 flex items-center gap-4 z-40">
+    <div class="text-sm" id="bottomStatus">Loading status...</div>
+    <div class="text-xs text-gray-500">•</div>
+    <div class="text-sm text-gray-600" id="updatedAt">Updated: —</div>
+  </footer>
+
+  <!-- =========================
+       MODAL
+       ========================= -->
+  <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div id="modalCard" class="bg-white rounded-lg shadow-lg w-11/12 max-w-2xl p-6 modal-fade relative">
+      <button id="modalClose" class="absolute right-4 top-4 text-gray-500 hover:text-gray-800">&times;</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- =========================
+       SCRIPT (FULL LOGIC)
+       ========================= -->
+  <script>
+console.log('Page script started loading...');
+
+/* =========================
+   DATA + STATE
+   ========================= */
+let students = [
+  { id: "S001", name: "Ana Cruz", sex: "Female", age: 20, height: 160, contact: "09171234567", course: "BSIT", year: "2nd Year", temperature: 36.7, heartRate: 72, oxygen: 98, status: "OK", lastSeen: "2025-09-25 09:22", history: [] },
+  { id: "S002", name: "Mark Dela Vega", sex: "Male", age: 19, height: 170, contact: "09179876543", course: "BSCRIM", year: "1st Year", temperature: 38.3, heartRate: 95, oxygen: 94, status: "WATCH", lastSeen: "2025-09-25 11:03", history: [] },
+  { id: "S003", name: "Liza Santos", sex: "Female", age: 21, height: 158, contact: "09173456789", course: "BSCED", year: "3rd Year", temperature: 39.1, heartRate: 110, oxygen: 90, status: "CRITICAL", lastSeen: "2025-09-25 11:40", history: [] }
+];
+
+let alerts = [];
+let deletedStudents = [];
+let view = 'dashboard';
+let perPage = 7;
+let currentPage = 1;
+let autoRefresh = true;
+let chartInstances = {};
+let simInterval = null;
+
+/* =========================
+   UTILITIES
+   ========================= */
+function uid(prefix='S') { const n = Math.floor(Math.random()*900)+100; return prefix + Date.now().toString().slice(-4) + n; }
+function statusClass(status){
+  if(status==="OK") return "bg-green-100 text-green-800";
+  if(status==="WATCH") return "bg-yellow-100 text-yellow-800";
+  if(status==="CRITICAL") return "bg-red-100 text-red-800";
+  return "bg-gray-100 text-gray-700";
+}
+function download(filename, content) {
+  const a = document.createElement('a'); a.href = content; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+}
+function nowString(){ return new Date().toLocaleString(); }
+function saveToStorage(){ localStorage.setItem('CH_students', JSON.stringify(students)); localStorage.setItem('CH_alerts', JSON.stringify(alerts)); localStorage.setItem('CH_deleted', JSON.stringify(deletedStudents)); }
+function loadFromStorage(){
+  try{
+    const s = localStorage.getItem('CH_students');
+    const a = localStorage.getItem('CH_alerts');
+    const d = localStorage.getItem('CH_deleted');
+    if(s) students = JSON.parse(s);
+    if(a) alerts = JSON.parse(a);
+    if(d) deletedStudents = JSON.parse(d);
+  } catch(e){}
+}
+
+/* =========================
+   STARTUP: load data, ask notification
+   ========================= */
+loadFromStorage();
+if(window.Notification && Notification.permission !== 'granted' && Notification.permission !== 'denied'){
+  Notification.requestPermission().catch(()=>{});
+}
+
+/* autosave every 3s */
+setInterval(saveToStorage, 3000);
+
+/* =========================
+   STATUS BAR
+   ========================= */
+function updateBottomStatus(){
+  const ok = students.filter(s=>s.status==='OK').length;
+  const watch = students.filter(s=>s.status==='WATCH').length;
+  const crit = students.filter(s=>s.status==='CRITICAL').length;
+  document.getElementById('bottomStatus').textContent = `${students.length} Students • ${watch} Watch • ${crit} Critical`;
+  document.getElementById('updatedAt').textContent = `Updated: ${nowString()}`;
+  const top = document.getElementById('topStatusSummary');
+  if(top) top.textContent = `${students.length} students • ${crit} critical`;
+}
+
+/* =========================
+   NAV / RENDER
+   ========================= */
+function render(){
+  const c = document.getElementById('content');
+  c.innerHTML = '';
+  if(view==='dashboard') renderDashboard(c);
+  if(view==='students') renderStudents(c);
+  if(view==='monitoring') renderMonitoring(c);
+  if(view==='alerts') renderAlerts(c);
+  if(view==='reports') renderReports(c);
+  if(view==='trash') renderTrash(c);
+  updateBottomStatus();
+}
+
+try {
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> {
+      try {
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('nav-active'));
+        btn.classList.add('nav-active');
+        view = btn.dataset.view;
+        render();
+      } catch(e) {
+        console.error('Error in tab click:', e);
+      }
+    });
+  });
+} catch(e) {
+  console.error('Error attaching tab event listeners:', e);
+}
+
+try {
+  document.getElementById('globalSearchTop').addEventListener('input', ()=>{
+    if(view !== 'students') {
+      view = 'students';
+      document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.dataset.view!=='students') b.classList.remove('nav-active'); });
+      document.querySelector('[data-view="students"]').classList.add('nav-active');
+    }
+    currentPage = 1; render();
+  });
+} catch(e) {
+  console.error('Error attaching search event listener:', e);
+}
+
+/* =========================
+   DASHBOARD
+   ========================= */
+function renderDashboard(c){
+  const ok = students.filter(s=>s.status==='OK').length;
+  const watch = students.filter(s=>s.status==='WATCH').length;
+  const crit = students.filter(s=>s.status==='CRITICAL').length;
+
+  c.innerHTML = `
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="bg-white rounded-lg p-4 shadow-sm border">
+        <div class="text-sm text-green-600">All Students</div>
+        <div class="text-2xl font-semibold text-green-800">${students.length}</div>
+        <div class="text-xs text-gray-500 mt-2">Updated: ${nowString()}</div>
+      </div>
+      <div class="bg-white rounded-lg p-4 shadow-sm border">
+        <div class="text-sm text-yellow-700">Watch</div>
+        <div class="text-2xl font-semibold text-yellow-700">${watch}</div>
+      </div>
+      <div class="bg-white rounded-lg p-4 shadow-sm border">
+        <div class="text-sm text-red-700">Critical</div>
+        <div class="text-2xl font-semibold text-red-700">${crit}</div>
+      </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="bg-white rounded-lg p-4 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold text-green-800">Status Distribution</h3>
+          <div class="text-xs text-gray-500">Live</div>
+        </div>
+        <canvas id="statusPie" class="mt-3"></canvas>
+      </div>
+
+      <div class="bg-white rounded-lg p-4 shadow-sm">
+        <h3 class="font-semibold text-green-800">Average Vitals (Snapshot)</h3>
+        <canvas id="vitalBar" class="mt-3"></canvas>
+      </div>
+
+      <div class="bg-white rounded-lg p-4 shadow-sm">
+        <h3 class="font-semibold text-green-800">Students per Course</h3>
+        <canvas id="courseBar" class="mt-3"></canvas>
+      </div>
+    </div>
+
+    <div class="mt-6 bg-white rounded-lg p-4 shadow-sm">
+      <h3 class="font-semibold text-green-800">Recent Alerts</h3>
+      <ul id="recentAlerts" class="mt-3 space-y-2"></ul>
+    </div>
+  `;
+
+  drawStatusPie();
+  drawVitalBar();
+  drawCourseBar();
+  renderRecentAlerts();
+}
+
+function drawStatusPie(){
+  const ctx = document.getElementById('statusPie'); if(!ctx) return;
+  if(chartInstances.statusPie) chartInstances.statusPie.destroy();
+  const data = [students.filter(s=>s.status==='OK').length, students.filter(s=>s.status==='WATCH').length, students.filter(s=>s.status==='CRITICAL').length];
+  chartInstances.statusPie = new Chart(ctx, { type:'pie', data:{ labels:['OK','WATCH','CRITICAL'], datasets:[{ data, backgroundColor:['#34D399','#FBBF24','#F87171'] }] } });
+}
+
+function drawVitalBar(){
+  const ctx = document.getElementById('vitalBar'); if(!ctx) return;
+  if(chartInstances.vitalBar) chartInstances.vitalBar.destroy();
+  const labels = students.map(s=>s.name);
+  const temps = students.map(s=>s.temperature||0);
+  const hrs = students.map(s=>s.heartRate||0);
+  const ox = students.map(s=>s.oxygen||0);
+  chartInstances.vitalBar = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[ { label:'Temp (°C)', data:temps }, { label:'HR (bpm)', data:hrs }, { label:'O₂ (%)', data:ox } ] },
+    options:{ responsive:true, interaction:{mode:'index'}, scales:{ y:{ beginAtZero:true } } }
+  });
+}
+
+function drawCourseBar(){
+  const ctx = document.getElementById('courseBar'); if(!ctx) return;
+  if(chartInstances.courseBar) chartInstances.courseBar.destroy();
+  const group = {};
+  students.forEach(s=> group[s.course] = (group[s.course]||0)+1 );
+  chartInstances.courseBar = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:Object.keys(group), datasets:[{ label: 'Students', data:Object.values(group) }] },
+    options:{ responsive:true }
+  });
+}
+
+function renderRecentAlerts(){
+  const el = document.getElementById('recentAlerts');
+  el.innerHTML = alerts.slice().reverse().slice(0,5).map(a=>`
+    <li class="p-3 rounded border ${a.type.includes('Auto') ? 'border-red-200 bg-red-50' : 'border-green-100 bg-white'}">
+      <div class="font-semibold text-sm">${a.type}</div>
+      <div class="text-sm">${a.message}</div>
+      <div class="text-xs text-gray-500 mt-1">${a.time}</div>
+    </li>
+  `).join('');
+}
+
+/* =========================
+   STUDENTS (list + CRUD + new features)
+   ========================= */
+function renderStudents(c){
+  c.innerHTML = `
+    <div class="flex justify-between mb-4">
+      <h2 class="font-semibold text-green-800">Students</h2>
+      <div class="flex gap-2">
+        <button class="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800" onclick="openStudentModal('add')">Add Student</button>
+        <button class="px-4 py-2 bg-gray-100 rounded" onclick="exportJSON()">Export JSON</button>
+        <button class="px-4 py-2 bg-gray-100 rounded" onclick="exportCSV()">Export CSV</button>
+        <button class="px-4 py-2 bg-gray-100 rounded" onclick="exportAlertsCSV()">Export Alerts CSV</button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg p-4 shadow-sm">
+      <div class="mb-3 flex items-center gap-3">
+        <label class="text-sm">Filter:</label>
+        <select id="statusFilter" class="border px-2 py-1 rounded text-sm">
+          <option value="">All</option>
+          <option value="OK">OK</option>
+          <option value="WATCH">Watch</option>
+          <option value="CRITICAL">Critical</option>
+        </select>
+        <button onclick="openQRScanner()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm">Scan QR</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="text-sm text-green-600 border-b">
+            <tr>
+              <th class="py-2">#</th>
+              <th class="py-2">Name</th>
+              <th class="py-2">Sex</th>
+              <th class="py-2">Age</th>
+              <th class="py-2">Course</th>
+              <th class="py-2">Temp</th>
+              <th class="py-2">HR</th>
+              <th class="py-2">O₂</th>
+              <th class="py-2">Status</th>
+              <th class="py-2">Last Seen</th>
+              <th class="py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTbody"></tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 flex items-center justify-between">
+        <div class="text-sm text-gray-600">Showing <span id="showingCount"></span></div>
+        <div class="flex items-center gap-2">
+          <button onclick="prevPage()" class="px-3 py-1 border rounded">Prev</button>
+          <div class="px-3 py-1 border rounded" id="pageInfo"></div>
+          <button onclick="nextPage()" class="px-3 py-1 border rounded">Next</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('statusFilter').addEventListener('change', ()=> { currentPage=1; renderStudentsTable(); });
+  renderStudentsTable();
+}
+
+function getFilteredStudents(){
+  const q = (document.getElementById('globalSearchTop')?.value || '').toLowerCase();
+  let arr = students.slice();
+  if(q) arr = arr.filter(s => (s.name + ' ' + s.id + ' ' + s.course + ' ' + (s.sex||'')).toLowerCase().includes(q));
+  const stat = document.getElementById('statusFilter')?.value || '';
+  if(stat) arr = arr.filter(s => s.status === stat);
+  return arr;
+}
+
+function renderStudentsTable(){
+  const tbody = document.getElementById('studentsTbody');
+  const all = getFilteredStudents();
+  const total = all.length;
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  currentPage = Math.min(currentPage, pages);
+  const start = (currentPage-1)*perPage;
+  const pageData = all.slice(start, start+perPage);
+
+  tbody.innerHTML = pageData.map((s,i)=>`
+    <tr class="border-b hover:bg-green-50">
+      <td class="py-2 px-2">${start + i + 1}</td>
+      <td class="py-2 px-2 flex items-center gap-2">
+        ${s.photo ? `<img src="${s.photo}" class="w-8 h-8 object-cover rounded-full">` : `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">${(s.name || '').split(' ').map(n=>n[0]).join('').slice(0,2)}</div>`}
+        <span>${s.name}</span>
+      </td>
+      <td class="py-2 px-2">${s.sex}</td>
+      <td class="py-2 px-2">${s.age}</td>
+      <td class="py-2 px-2">${s.course}</td>
+      <td class="py-2 px-2">${s.temperature ?? '-'}</td>
+      <td class="py-2 px-2">${s.heartRate ?? '-'}</td>
+      <td class="py-2 px-2">${s.oxygen ?? '-'}</td>
+      <td class="py-2 px-2"><span class="px-2 py-1 rounded text-xs ${statusClass(s.status)}">${s.status}</span></td>
+      <td class="py-2 px-2">${s.lastSeen ?? '-'}</td>
+      <td class="py-2 px-2 space-x-2">
+        <button class="text-blue-600 hover:underline" onclick="openStudentModal('view','${s.id}')">View</button>
+        <button class="text-yellow-600 hover:underline" onclick="openStudentModal('edit','${s.id}')">Edit</button>
+        <button class="text-purple-600 hover:underline" onclick="openHistory('${s.id}')">History</button>
+        <button class="text-red-600 hover:underline" onclick="deleteStudentById('${s.id}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  document.getElementById('showingCount').textContent = total===0 ? '0' : `${start+1} - ${Math.min(start+perPage, total)} of ${total}`;
+  document.getElementById('pageInfo').textContent = `Page ${currentPage} / ${pages}`;
+}
+
+function prevPage(){ if(currentPage>1) { currentPage--; render(); } }
+function nextPage(){ const total = getFilteredStudents().length; const pages = Math.max(1, Math.ceil(total / perPage)); if(currentPage < pages){ currentPage++; render(); } }
+
+/* =========================
+   Helper: read file to DataURL promise
+   ========================= */
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('File read error'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/* =========================
+   Open Student Modal (view/add/edit)
+   - For save button we attach an event listener after rendering modal content.
+   ========================= */
+function openStudentModal(mode, id=null){
+  const modal = document.getElementById('modal');
+  const content = document.getElementById('modalContent');
+  let s = id ? students.find(x=>x.id===id) : null;
+
+  if(mode === 'view'){
+    if(!s) return alert('Student not found');
+    content.innerHTML = `
+      <div class="flex justify-between items-start">
+        <h3 class="font-semibold text-green-800 mb-3">Student Details</h3>
+        <div class="space-x-2">
+          <button class="px-3 py-1 bg-red-700 text-white rounded" onclick="exportStudentPDF('${s.id}')">Export PDF</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-1">
+          ${s.photo ? `<img src="${s.photo}" class="w-40 h-40 object-cover rounded border">` : `<div class="w-40 h-40 bg-gray-100 rounded border flex items-center justify-center">No Photo</div>`}
+        </div>
+        <div class="col-span-2 grid grid-cols-2 gap-2">
+          <div><strong>ID:</strong> ${s.id}</div>
+          <div><strong>Name:</strong> ${s.name}</div>
+          <div><strong>Sex:</strong> ${s.sex}</div>
+          <div><strong>Age:</strong> ${s.age}</div>
+          <div><strong>Height:</strong> ${s.height ? s.height + ' cm' : '-'}</div>
+          <div><strong>Contact:</strong> ${s.contact}</div>
+          <div><strong>Course:</strong> ${s.course}</div>
+          <div><strong>Year:</strong> ${s.year}</div>
+          <div><strong>Temperature:</strong> ${s.temperature}°C</div>
+          <div><strong>Heart Rate:</strong> ${s.heartRate} bpm</div>
+          <div><strong>Oxygen:</strong> ${s.oxygen}%</div>
+          <div><strong>Status:</strong> ${s.status}</div>
+          <div><strong>Last Seen:</strong> ${s.lastSeen}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    // mode === 'add' or 'edit'
+    content.innerHTML = `
+      <h3 class="font-semibold text-green-800 mb-3">${mode==='add' ? 'Add Student' : 'Edit Student'}</h3>
+      <div class="grid grid-cols-2 gap-4">
+        <input id="s_id" placeholder="ID" class="border px-2 py-1 rounded" value="${s ? s.id : uid()}" ${s? 'readonly':''}>
+        <input id="s_name" placeholder="Name" class="border px-2 py-1 rounded" value="${s ? s.name : ''}">
+        <select id="s_sex" class="border px-2 py-1 rounded">
+          <option value="Male" ${s && s.sex==='Male'?'selected':''}>Male</option>
+          <option value="Female" ${s && s.sex==='Female'?'selected':''}>Female</option>
+        </select>
+        <input id="s_age" type="number" placeholder="Age" class="border px-2 py-1 rounded" value="${s ? s.age : ''}">
+        <input id="s_height" type="number" placeholder="Height (cm)" class="border px-2 py-1 rounded" value="${s ? s.height : ''}">
+        <input id="s_contact" placeholder="Contact" class="border px-2 py-1 rounded" value="${s ? s.contact : ''}">
+        <input id="s_course" placeholder="Course (e.g. BSIT)" class="border px-2 py-1 rounded" value="${s ? s.course : ''}">
+        <input id="s_year" placeholder="Year" class="border px-2 py-1 rounded" value="${s ? s.year : ''}">
+        <input id="s_temp" type="number" step="0.1" placeholder="Temperature" class="border px-2 py-1 rounded" value="${s ? s.temperature : ''}">
+        <input id="s_hr" type="number" placeholder="Heart Rate" class="border px-2 py-1 rounded" value="${s ? s.heartRate : ''}">
+        <input id="s_ox" type="number" placeholder="Oxygen %" class="border px-2 py-1 rounded" value="${s ? s.oxygen : ''}">
+        <select id="s_status" class="border px-2 py-1 rounded">
+          <option value="OK" ${s && s.status==='OK'?'selected':''}>OK</option>
+          <option value="WATCH" ${s && s.status==='WATCH'?'selected':''}>WATCH</option>
+          <option value="CRITICAL" ${s && s.status==='CRITICAL'?'selected':''}>CRITICAL</option>
+        </select>
+
+        <div class="col-span-2">
+          <label class="block text-sm mb-1">Profile Photo (optional)</label>
+          <input id="s_photo" type="file" accept="image/*" class="border px-2 py-1 rounded w-full">
+        </div>
+
+        <div class="col-span-2 flex gap-2 mt-3">
+          <button id="saveStudentBtn" class="px-3 py-1 bg-green-700 text-white rounded">Save</button>
+          <button class="px-3 py-1 bg-gray-300 rounded" onclick="closeModal()">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    // attach event listener to Save button
+    const saveBtn = document.getElementById('saveStudentBtn');
+    if(saveBtn){
+      // remove previous listeners if any
+      saveBtn.onclick = null;
+      saveBtn.addEventListener('click', ()=> {
+        saveStudentFromModal(mode, s ? s.id : '');
+      });
+    }
+  }
+
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+}
+
+/* =========================
+   Save student collected from modal (async-safe)
+   - Handles file reading with async/await
+   ========================= */
+async function saveStudentFromModal(mode, oldId=''){
+  try {
+    const s_id = document.getElementById('s_id')?.value?.trim();
+    const s_name = document.getElementById('s_name')?.value?.trim();
+    if(!s_id || !s_name) { alert('Please provide at least ID and Name'); return; }
+
+    const obj = {
+      id: s_id,
+      name: s_name,
+      sex: document.getElementById('s_sex')?.value || '',
+      age: (document.getElementById('s_age')?.value === '') ? null : parseInt(document.getElementById('s_age')?.value) || null,
+      height: (document.getElementById('s_height')?.value === '') ? null : parseInt(document.getElementById('s_height')?.value) || null,
+      contact: document.getElementById('s_contact')?.value || '',
+      course: document.getElementById('s_course')?.value || 'N/A',
+      year: document.getElementById('s_year')?.value || '',
+      temperature: document.getElementById('s_temp')?.value === '' ? null : parseFloat(document.getElementById('s_temp')?.value),
+      heartRate: document.getElementById('s_hr')?.value === '' ? null : parseInt(document.getElementById('s_hr')?.value),
+      oxygen: document.getElementById('s_ox')?.value === '' ? null : parseInt(document.getElementById('s_ox')?.value),
+      status: document.getElementById('s_status')?.value || 'OK',
+      lastSeen: new Date().toLocaleString(),
+    };
+
+    // preserve existing history if editing
+    const existing = students.find(x => x.id === oldId || x.id === obj.id);
+    obj.history = existing && existing.history ? [...existing.history] : [];
+    obj.history.push({
+      time: nowString(),
+      temp: obj.temperature,
+      hr: obj.heartRate,
+      ox: obj.oxygen,
+      status: obj.status
+    });
+
+    // handle photo file (async)
+    const photoInput = document.getElementById('s_photo');
+    if(photoInput && photoInput.files && photoInput.files[0]){
+      try {
+        const dataUrl = await readFileAsDataURL(photoInput.files[0]);
+        obj.photo = dataUrl;
+      } catch(e){
+        console.warn('Failed reading photo, continuing without it', e);
+        obj.photo = existing ? existing.photo : null;
+      }
+    } else {
+      obj.photo = existing ? existing.photo : null;
+    }
+
+    finalizeSave(obj, mode, oldId);
+  } catch(e){
+    alert('Error saving student: ' + (e && e.message ? e.message : e));
+  }
+}
+
+/* finalizeSave kept similar to previous implementation */
+function finalizeSave(obj, mode, oldId){
+  if(mode==='add') {
+    // ensure unique id
+    if(students.some(s=>s.id === obj.id)) {
+      alert('A student with this ID already exists. Please change the ID.');
+      return;
+    }
+    students.push(obj);
+  } else {
+    const idx = students.findIndex(x=>x.id===oldId || x.id===obj.id);
+    if(idx>=0) students[idx] = obj; else students.push(obj);
+  }
+
+  autoCheckHealth(obj);
+  closeModal(); render();
+  saveToStorage();
+  
+  // Send to backend
+  sendStudentToBackend(obj);
+}
+
+/* Send student data to backend API */
+async function sendStudentToBackend(studentObj){
+  try {
+    const response = await fetch(BASE_URL + 'students_save.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(studentObj)
+    });
+    
+    const result = await response.json();
+    if(!result.success) {
+      console.error('Backend save failed:', result);
+    }
+  } catch(e) {
+    console.error('Error sending to backend:', e);
+  }
+}
+
+/* =========================
+   Remaining CRUD and utilities remain unchanged
+   ========================= */
+function deleteStudentById(id){
+  if(!confirm('Delete this student?')) return;
+  const s = students.find(x=>x.id === id);
+  if(s) {
+    deletedStudents.push({...s, deletedAt: nowString()});
+    students = students.filter(s=>s.id !== id);
+    saveToStorage();
+    render();
+  }
+}
+
+function openHistory(id){
+  const modal = document.getElementById('modal');
+  const content = document.getElementById('modalContent');
+  const s = students.find(x=>x.id===id) || deletedStudents.find(x=>x.id===id);
+  if(!s) return alert('Student not found');
+  let html = `<h3 class="font-semibold text-green-800 mb-3">${s.name} — Health History</h3>
+  <div class="max-h-96 overflow-y-auto space-y-2">`;
+  if(!s.history || s.history.length===0) html += `<div class="text-gray-500">No history yet.</div>`;
+  else html += s.history.slice().reverse().map(h=>`
+    <div class="border p-2 rounded">
+      <div class="text-xs text-gray-500">${h.time}</div>
+      <div>Temp: ${h.temp ?? '-'}°C | HR: ${h.hr ?? '-'} bpm | O₂: ${h.ox ?? '-'}%</div>
+      <div>Status: <span class="${statusClass(h.status)} px-2 rounded text-xs">${h.status}</span></div>
+    </div>
+  `).join('');
+  html += `</div>`;
+  content.innerHTML = html;
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+}
+
+/* =========================
+   TRASH BIN (restore)
+   ========================= */
+function renderTrash(c){
+  c.innerHTML = `
+    <div class="flex justify-between mb-4">
+      <h2 class="text-xl font-semibold text-green-800">Trash Bin</h2>
+      <div><button class="px-3 py-1 bg-gray-200 rounded" onclick="emptyTrash()">Empty Trash</button></div>
+    </div>
+    <div class="space-y-3">
+      ${deletedStudents.length===0 ? "<p class='text-gray-500'>No deleted students.</p>" : deletedStudents.map(s=>`
+        <div class="bg-white p-4 rounded border shadow-sm flex justify-between items-start">
+          <div>
+            <div class="font-semibold">${s.name} (${s.id})</div>
+            <div class="text-xs text-gray-500">Deleted: ${s.deletedAt}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="px-3 py-1 border rounded" onclick="restoreStudent('${s.id}')">Restore</button>
+            <button class="px-3 py-1 border rounded text-red-600" onclick="purgeStudent('${s.id}')">Purge</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function restoreStudent(id){
+  const s = deletedStudents.find(x=>x.id===id);
+  if(!s) return;
+  students.push({...s, lastSeen: nowString()});
+  deletedStudents = deletedStudents.filter(x=>x.id !== id);
+  saveToStorage(); render();
+}
+
+function purgeStudent(id){
+  if(!confirm('Permanently delete this student?')) return;
+  deletedStudents = deletedStudents.filter(x=>x.id !== id);
+  saveToStorage(); render();
+}
+
+function emptyTrash(){
+  if(!confirm('Empty trash? This will permanently remove all deleted students.')) return;
+  deletedStudents = []; saveToStorage(); render();
+}
+
+/* =========================
+   EXPORT helpers
+   ========================= */
+function exportCSV(){
+  if(!students.length){ alert('No students to export'); return; }
+  const header = Object.keys(students[0]).filter(h=>h!=='photo' && h!=='history');
+  const rows = students.map(s => header.map(h => `"${(s[h] ?? '').toString().replace(/"/g,'""')}"`).join(','));
+  const csv = [header.join(','), ...rows].join('\n');
+  download('students.csv', 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv));
+}
+function exportJSON(){
+  download('students.json', 'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(students, null, 2)));
+}
+function exportAlertsCSV(){
+  if(!alerts.length){ alert('No alerts to export'); return; }
+  const header = 'Type,Message,Time\n';
+  const rows = alerts.map(a => `"${a.type.replace(/"/g,'""')}","${a.message.replace(/"/g,'""')}","${a.time}"`).join('\n');
+  download('alerts.csv', 'data:text/csv;charset=utf-8,'+encodeURIComponent(header+rows));
+}
+
+/* =========================
+   AUTO health alert checker + notifications
+   ========================= */
+function autoCheckHealth(s){
+  if(!s) return;
+  if ( (s.temperature !== null && s.temperature > 38.5) || (s.heartRate !== null && s.heartRate > 120) || (s.oxygen !== null && s.oxygen < 92) ) {
+    const a = { type: "Auto Health Alert", message: `${s.name} shows abnormal vital signs`, time: nowString(), id: Date.now() };
+    alerts.push(a); renderRecentAlerts(); renderAlerts(document.getElementById('content'));
+    // browser notification
+    if(window.Notification && Notification.permission === 'granted'){
+      new Notification("Critical Health Alert", { body: a.message });
+    }
+  }
+}
+
+/* =========================
+   MONITORING (simulate)
+   ========================= */
+function renderMonitoring(c){
+  c.innerHTML = `
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-semibold text-green-800">Real-Time Monitoring</h2>
+      <div class="flex items-center gap-2">
+        <label class="flex items-center gap-2"><input id="autoRefresh" type="checkbox" ${autoRefresh?'checked':''}/> Auto-refresh</label>
+        <button onclick="simulateOnce()" class="px-3 py-1 border rounded">Simulate Once</button>
+        <button onclick="toggleSimulation()" id="simBtn" class="px-3 py-1 bg-green-700 text-white rounded">Start/Stop</button>
+      </div>
+    </div>
+
+    <div class="mt-4 bg-white p-4 rounded shadow-sm">
+      <table class="w-full text-left">
+        <thead class="text-sm text-green-600 border-b">
+          <tr><th class="py-2">ID</th><th>Name</th><th>Temp</th><th>HR</th><th>O₂</th><th>Status</th><th>Last Seen</th></tr>
+        </thead>
+        <tbody id="monitorTbody"></tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('autoRefresh').addEventListener('change', (e)=> autoRefresh = e.target.checked);
+  updateMonitoringTable();
+}
+
+function updateMonitoringTable(){
+  const tbody = document.getElementById('monitorTbody');
+  tbody.innerHTML = students.map(s => `
+    <tr class="border-b hover:bg-green-50 ${s.status==='CRITICAL' ? 'animate-pulse' : ''}">
+      <td class="py-2">${s.id}</td>
+      <td>${s.name}</td>
+      <td>${s.temperature!==null? s.temperature + '°C' : '-'}</td>
+      <td>${s.heartRate!==null? s.heartRate + ' bpm' : '-'}</td>
+      <td>${s.oxygen!==null? s.oxygen + '%' : '-'}</td>
+      <td><span class="px-2 py-1 rounded text-xs ${statusClass(s.status)}">${s.status}</span></td>
+      <td>${s.lastSeen || '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function simulateOnce(){
+  students = students.map(s => {
+    const t = s.temperature ? +(s.temperature + (Math.random()-0.45)*0.6).toFixed(1) : +(36 + Math.random()*2).toFixed(1);
+    const hr = s.heartRate ? Math.max(40, Math.round(s.heartRate + Math.round((Math.random()-0.45)*8))) : Math.round(60 + Math.random()*40);
+    const ox = s.oxygen ? Math.max(80, Math.round(s.oxygen + Math.round((Math.random()-0.45)*2))) : Math.round(95 - Math.random()*5);
+    const st = (t > 38.5 || hr > 120 || ox < 92) ? 'CRITICAL' : (t > 37.5 || hr > 100 || ox < 95 ? 'WATCH' : 'OK');
+    const updated = {...s, temperature: t, heartRate: hr, oxygen: ox, status: st, lastSeen: new Date().toLocaleString()};
+    // push history
+    updated.history = updated.history || [];
+    updated.history.push({ time: updated.lastSeen, temp: t, hr, ox, status: st });
+    if(st === 'CRITICAL') alerts.push({ type: 'Auto Health Alert', message: `${s.name} became critical`, time: new Date().toLocaleString(), id: Date.now() });
+    return updated;
+  });
+
+  if(document.getElementById('monitorTbody')) updateMonitoringTable();
+  if(document.getElementById('statusPie')) { drawStatusPie(); drawVitalBar(); drawCourseBar(); renderRecentAlerts(); }
+  render();
+  saveToStorage();
+}
+
+function toggleSimulation(){
+  if(simInterval){ clearInterval(simInterval); simInterval = null; document.getElementById('simBtn').textContent = 'Start/Stop'; alert('Simulation stopped'); }
+  else { simInterval = setInterval(simulateOnce, 4500); document.getElementById('simBtn').textContent = 'Running...'; alert('Simulation started'); }
+}
+
+/* =========================
+   ALERTS UI
+   ========================= */
+function renderAlerts(c){
+  c.innerHTML = `
+    <div class="flex justify-between mb-4">
+      <h2 class="text-xl font-semibold text-green-800">Alerts</h2>
+      <div><button onclick="openAlertModal()" class="px-4 py-2 bg-green-700 text-white rounded">Create Alert</button></div>
+    </div>
+
+    <div class="space-y-3">
+      ${alerts.slice().reverse().map(a=>`
+        <div class="bg-white p-4 rounded border shadow-sm flex justify-between items-start">
+          <div>
+            <div class="font-semibold">${a.type}</div>
+            <div>${a.message}</div>
+            <div class="text-xs text-gray-500 mt-1">${a.time}</div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button onclick="dismissAlert(${a.id})" class="px-3 py-1 border rounded text-sm">Dismiss</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function openAlertModal(){
+  const modal = document.getElementById('modal');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <h3 class="font-semibold text-green-800 mb-3">Create Alert</h3>
+    <input id="alertType" placeholder="Alert Type (e.g. Fever)" class="border w-full px-2 py-1 rounded mb-2" />
+    <textarea id="alertMsg" placeholder="Message" class="border w-full px-2 py-1 rounded"></textarea>
+    <div class="mt-3 space-x-2">
+      <button class="px-3 py-1 bg-green-700 text-white rounded" onclick="saveAlert()">Save</button>
+      <button class="px-3 py-1 bg-gray-300 rounded" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+}
+
+function saveAlert(){
+  const t = document.getElementById('alertType').value || 'Manual Alert';
+  const msg = document.getElementById('alertMsg').value || '';
+  alerts.push({ type: t, message: msg, time: new Date().toLocaleString(), id: Date.now() });
+  closeModal(); render();
+  saveToStorage();
+  setTimeout(()=>{ alerts = alerts.filter(a=> (Date.now() - a.id) < 5 * 60 * 1000 ); render(); saveToStorage(); }, 5*60*1000);
+}
+function dismissAlert(id){ alerts = alerts.filter(a => a.id !== id); render(); saveToStorage(); }
+
+/* =========================
+   REPORTS (PDF) + per-student PDF
+   ========================= */
+function renderReports(c){
+  c.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-semibold text-green-800">Reports</h2>
+      <div class="flex items-center gap-2">
+        <input id="rfrom" type="date" class="border px-2 py-1 rounded" />
+        <input id="rto" type="date" class="border px-2 py-1 rounded" />
+        <button onclick="generateReport()" class="px-3 py-1 bg-green-700 text-white rounded">Generate PDF</button>
+      </div>
+    </div>
+    <div id="reportResult" class="bg-white p-4 rounded shadow-sm">
+      <p class="text-gray-600">Generate a PDF report of current student data (filtered by date range).</p>
+    </div>
+  `;
+}
+
+async function generateReport(){
+  const from = document.getElementById('rfrom').value;
+  const to = document.getElementById('rto').value;
+  const doc = new jspdf.jsPDF();
+  doc.setFontSize(16); doc.text('CampusHealth Report', 14, 20);
+  doc.setFontSize(10); doc.text(`Generated: ${nowString()}`, 14, 28);
+  if(from || to) doc.text(`Range: ${from || '-'} to ${to || '-'}`, 14, 34);
+  const rows = students.map(s => [s.id, s.name, s.course, s.status, s.temperature || '-', s.heartRate || '-', s.oxygen || '-', s.lastSeen || '-' ]);
+  doc.autoTable({ head: [['ID','Name','Course','Status','Temp','HR','O₂','Last Seen']], body: rows, startY: 42, theme: 'striped' });
+  const pdfName = `CampusHealth_Report_${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(pdfName);
+}
+
+function exportStudentPDF(id){
+  const s = students.find(x=>x.id===id);
+  if(!s) return alert('Student not found');
+  const doc = new jspdf.jsPDF();
+  doc.text(`Student Report: ${s.name}`, 14, 15);
+  doc.autoTable({
+    startY: 25,
+    body: [
+      ['ID', s.id], ['Name', s.name], ['Course', s.course],
+      ['Age', s.age], ['Status', s.status],
+      ['Temperature', s.temperature], ['Heart Rate', s.heartRate],
+      ['Oxygen', s.oxygen], ['Last Seen', s.lastSeen]
+    ]
+  });
+  doc.save(`${s.name.replace(/\s+/g,'_')}_Report.pdf`);
+}
+
+/* =========================
+   MODAL, WIRING
+   ========================= */
+try {
+  const modalCloseBtn = document.getElementById('modalClose');
+  if(modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', closeModal);
+  }
+} catch(e) {
+  console.error('Error attaching modal close listener:', e);
+}
+
+function closeModal(){ const m = document.getElementById('modal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+try {
+  const alertBtn = document.getElementById('alertTopBtn');
+  if(alertBtn) {
+    alertBtn.addEventListener('click', ()=>{ view='alerts'; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('nav-active')); document.querySelector('[data-view="alerts"]').classList.add('nav-active'); render(); });
+  }
+} catch(e) {
+  console.error('Error attaching alert button listener:', e);
+}
+
+/* =========================
+   QR / Attendance (placeholder)
+   ========================= */
+function openQRScanner(){
+  const modal = document.getElementById('modal');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <h3 class="font-semibold text-green-800 mb-3">QR Scanner (Attendance)</h3>
+    <p class="text-gray-600 mb-2">This is a placeholder. To enable QR scanning integrate a library like <strong>html5-qrcode</strong> or <strong>jsQR</strong>.</p>
+    <video id="qrVideo" class="w-full h-72 bg-black"></video>
+    <div class="mt-3 flex gap-2">
+      <button class="px-3 py-1 bg-gray-200 rounded" onclick="closeModal()">Close</button>
+    </div>
+  `;
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+  // NOTE: integration instructions:
+  // - Include html5-qrcode script and implement camera permission and scanning callbacks.
+}
+
+/* =========================
+   LOGOUT (using BASE_URL)
+   ========================= */
+function logout(){
+  if(confirm("Are you sure you want to logout?")){
+    localStorage.removeItem('CH_loggedIn');
+    localStorage.removeItem('CH_user');
+    window.location.href = BASE_URL + "home.php"; // Redirect to homepage
+  }
+}
+
+/* =========================
+   initial render + expose debug
+   ========================= */
+try {
+  render();
+  updateBottomStatus();
+} catch(e) {
+  console.error('Error during initial render:', e);
+  document.getElementById('content').innerHTML = '<div class="p-6 bg-red-100 text-red-800 rounded">Error loading dashboard. Check console for details.</div>';
+}
+
+window.students = students;
+window.alerts = alerts;
+window.exportCSV = exportCSV;
+window.exportJSON = exportJSON;
+window.importJSONFromFile = importJSONFromFile;
+
+/* =========================
+   File import support (drag/drop or input)
+   ========================= */
+function importJSONFromFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(Array.isArray(data)) { students = students.concat(data.map(d => ({ ...d, history: d.history || [] }))); saveToStorage(); render(); }
+      else alert('JSON must be an array');
+    } catch(e){ alert('Invalid JSON'); }
+  };
+  reader.readAsText(file);
+}
+
+console.log('CampusHealth script loaded successfully!');
+window.onerror = function(msg, url, linenumber) {
+  console.error('JavaScript Error:', msg, 'at line', linenumber);
+  return true;
+};
+  </script>
+
+
+</body>
+</html>
