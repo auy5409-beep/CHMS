@@ -559,11 +559,8 @@ function openStudentModal(mode, id=null){
         </div>
 
         <div class="col-span-2 flex gap-2 mt-3">
-          <button id="saveStudentBtn" data-mode="${mode}"
-              class="px-3 py-1 bg-green-700 text-white rounded">
-              Save
-          </button>
-
+          <button id="saveStudentBtn" class="px-3 py-1 bg-green-700 text-white rounded">Save</button>
+          <button class="px-3 py-1 bg-gray-300 rounded" onclick="closeModal()">Cancel</button>
         </div>
       </div>
     `;
@@ -586,47 +583,72 @@ function openStudentModal(mode, id=null){
    Save student collected from modal (async-safe)
    - Handles file reading with async/await
    ========================= */
-async function saveStudentFromModal(mode, oldId){
-  const student = {
-    id: document.getElementById('s_id').value,
-    name: document.getElementById('s_name').value,
-    sex: document.getElementById('s_sex').value,
-    course: document.getElementById('s_course').value,
-    year: document.getElementById('s_year').value,
-    age: Number(document.getElementById('s_age').value),
-    height: Number(document.getElementById('s_height').value),
-    contact: document.getElementById('s_contact').value,
-    temperature: Number(document.getElementById('s_temp').value),
-    heartRate: Number(document.getElementById('s_hr').value),
-    oxygen: Number(document.getElementById('s_ox').value),
-    status: document.getElementById('s_status').value,
-    lastSeen: nowString(),
-    history: []
-  };
+async function saveStudentFromModal(mode, oldId=''){
+  try {
+    const s_id = document.getElementById('s_id')?.value?.trim();
+    const s_name = document.getElementById('s_name')?.value?.trim();
+    if(!s_id || !s_name) { alert('Please provide at least ID and Name'); return; }
 
-  // handle photo
-  const photoInput = document.getElementById('s_photo');
-  if(photoInput?.files?.[0]){
-    student.photo = await readFileAsDataURL(photoInput.files[0]);
-  }
+    const obj = {
+      id: s_id,
+      name: s_name,
+      sex: document.getElementById('s_sex')?.value || '',
+      age: (document.getElementById('s_age')?.value === '') ? null : parseInt(document.getElementById('s_age')?.value) || null,
+      height: (document.getElementById('s_height')?.value === '') ? null : parseInt(document.getElementById('s_height')?.value) || null,
+      contact: document.getElementById('s_contact')?.value || '',
+      course: document.getElementById('s_course')?.value || 'N/A',
+      year: document.getElementById('s_year')?.value || '',
+      temperature: document.getElementById('s_temp')?.value === '' ? null : parseFloat(document.getElementById('s_temp')?.value),
+      heartRate: document.getElementById('s_hr')?.value === '' ? null : parseInt(document.getElementById('s_hr')?.value),
+      oxygen: document.getElementById('s_ox')?.value === '' ? null : parseInt(document.getElementById('s_ox')?.value),
+      status: document.getElementById('s_status')?.value || 'OK',
+      lastSeen: new Date().toLocaleString(),
+    };
 
-  if(mode === 'add'){
-    if(students.some(s => s.id === student.id)){
-      alert('Duplicate ID detected.');
-      return;
+    // preserve existing history if editing
+    const existing = students.find(x => x.id === oldId || x.id === obj.id);
+    obj.history = existing && existing.history ? [...existing.history] : [];
+    obj.history.push({
+      time: nowString(),
+      temp: obj.temperature,
+      hr: obj.heartRate,
+      ox: obj.oxygen,
+      status: obj.status
+    });
+
+    // handle photo file (async)
+    const photoInput = document.getElementById('s_photo');
+    if(photoInput && photoInput.files && photoInput.files[0]){
+      try {
+        const dataUrl = await readFileAsDataURL(photoInput.files[0]);
+        obj.photo = dataUrl;
+      } catch(e){
+        console.warn('Failed reading photo, continuing without it', e);
+        obj.photo = existing ? existing.photo : null;
+      }
+    } else {
+      obj.photo = existing ? existing.photo : null;
     }
-    students.push(student);
-  } else {
-    const idx = students.findIndex(s => s.id === oldId);
-    if(idx >= 0) students[idx] = {...students[idx], ...student};
-  }
 
-  autoCheckHealth(student);
-  saveToStorage();
-  closeModal();
-  render();
+    finalizeSave(obj, mode, oldId);
+  } catch(e){
+    alert('Error saving student: ' + (e && e.message ? e.message : e));
+  }
 }
 
+/* finalizeSave kept similar to previous implementation */
+function finalizeSave(obj, mode, oldId){
+  if(mode==='add') {
+    // ensure unique id
+    if(students.some(s=>s.id === obj.id)) {
+      alert('A student with this ID already exists. Please change the ID.');
+      return;
+    }
+    students.push(obj);
+  } else {
+    const idx = students.findIndex(x=>x.id===oldId || x.id===obj.id);
+    if(idx>=0) students[idx] = obj; else students.push(obj);
+  }
 
   autoCheckHealth(obj);
   closeModal(); render();
@@ -634,7 +656,7 @@ async function saveStudentFromModal(mode, oldId){
   
   // Send to backend
   sendStudentToBackend(obj);
-
+}
 
 /* Send student data to backend API */
 async function sendStudentToBackend(studentObj){
