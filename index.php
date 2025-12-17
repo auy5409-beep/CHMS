@@ -36,11 +36,6 @@
 </head>
 <body class="min-h-screen bg-gradient-to-br from-green-50 to-white">
 
-  <script>
-    // Show loading indicator immediately
-    document.write('<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 9999;"><p>Loading CampusHealth...</p></div>');
-  </script>
-
   <!-- =========================
        HEADER / NAV
        ========================= -->
@@ -1016,3 +1011,4 @@ window.onerror = function(msg, url, linenumber) {
 
 </body>
 </html>
+
