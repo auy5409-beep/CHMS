@@ -115,9 +115,12 @@ console.log('Page script started loading...');
    DATA + STATE
    ========================= */
 let students = [
-  {  name: "Ana Cruz", sex: "Female", age: 20, height: 160, contact: "09171234567", course: "BSIT", year: "2nd Year", temperature: 36.7, heartRate: 72, oxygen: 98, status: "OK", lastSeen: "2025-09-25 09:22", history: [] },
-  {  name: "Mark Dela Vega", sex: "Male", age: 19, height: 170, contact: "09179876543", course: "BSCRIM", year: "1st Year", temperature: 38.3, heartRate: 95, oxygen: 94, status: "WATCH", lastSeen: "2025-09-25 11:03", history: [] },
-  {  name: "Liza Santos", sex: "Female", age: 21, height: 158, contact: "09173456789", course: "BSCED", year: "3rd Year", temperature: 39.1, heartRate: 110, oxygen: 90, status: "CRITICAL", lastSeen: "2025-09-25 11:40", history: [] }
+  {  name: "Advincula, Zyrelle Joy C.", sex: "Female", age: 20, height: 160, contact: "09171234567", course: "BSIT", year: "4th Year", temperature: 36.7, heartRate: 72, oxygen: 98, status: "OK", lastSeen: "2025-09-25 09:22", history: [] },
+  {  name: "Agbayani, Lyza Lee B.", sex: "Female", age: 19, height: 170, contact: "09179876543", course: "BSIT", year: "4th Year", temperature: 38.3, heartRate: 95, oxygen: 94, status: "WATCH", lastSeen: "2025-09-25 11:03", history: [] },
+  {  name: "Aviles, Visitation Princess Elinor P.", sex: "Female", age: 21, height: 158, contact: "09173456789", course: "BSIt", year: "4th Year", temperature: 39.1, heartRate: 110, oxygen: 90, status: "CRITICAL", lastSeen: "2025-09-25 11:40", history: [] }
+  {  name: "Bicarme, Norine Mae T.", age: 20, height: 160, contact: "09171234567", course: "BSIT", year: "4th Year", temperature: 36.7, heartRate: 72, oxygen: 98, status: "OK", lastSeen: "2025-09-25 09:22", history: [] },
+  {  name: "Cristobal,  Val ", sex: "Male", age: 19, height: 170, contact: "09179876543", course: "BSCRIM", year: "1st Year", temperature: 38.3, heartRate: 95, oxygen: 94, status: "WATCH", lastSeen: "2025-09-25 11:03", history: [] },
+  {  name: "Liza Santos", sex: "Female", age: 21, height: 158, contact: "09173456789", course: "BSCED", year: "4td Year", temperature: 39.1, heartRate: 110, oxygen: 90, status: "CRITICAL", lastSeen: "2025-09-25 11:40", history: [] }
 ];
 
 let alerts = [];
@@ -862,17 +865,30 @@ function toggleSimulation(){
 /* =========================
    ALERTS UI
    ========================= */
-function renderRecentAlerts(){
-  const el = document.getElementById('recentAlerts');
-  if(!el) return; // 👈 prevent null error
+/* ========================= ALERTS ========================= */
+function renderAlerts(c){
+  if(!c) return;
+  c.innerHTML = alerts.length
+    ? alerts.map(a => `
+        <div class="bg-red-100 p-3 mb-2 rounded">
+          <div class="font-semibold">${a.message}</div>
+          <div class="text-xs text-gray-600">${a.time}</div>
+        </div>
+      `).join('')
+    : '<p class="text-gray-500">No alerts</p>';
+}
 
-  el.innerHTML = alerts.slice().reverse().slice(0,5).map(a=>`
-    <li class="p-3 rounded border ${a.type.includes('Auto') ? 'border-red-200 bg-red-50' : 'border-green-100 bg-white'}">
-      <div class="font-semibold text-sm">${a.type}</div>
-      <div class="text-sm">${a.message}</div>
-      <div class="text-xs text-gray-500 mt-1">${a.time}</div>
-    </li>
-  `).join('');
+// make sure function exists globally
+window.renderAlerts = renderAlerts;
+
+function autoCheckHealth(s){
+  if(!s) return;
+  if(s.temperature > 38.5 || s.heartRate > 120 || s.oxygen < 92){
+    alerts.push({
+      message: `${s.name} abnormal vitals`,
+      time: nowString()
+    });
+  }
 }
 
 
@@ -1030,3 +1046,4 @@ window.onerror = function(msg, url, linenumber) {
 
 </body>
 </html>
+
